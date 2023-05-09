@@ -1,0 +1,84 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+sourceCompatibility = 1.11
+version '1.0'
+
+repositories {
+    jcenter()
+}
+
+if (project.hasProperty('mainClass')) {
+    mainClassName = project.getProperty('mainClass')
+} else {
+    // use a default
+    mainClassName = "com.lox.Lox"
+}
+
+// Remove that nagging bin folder vscode seems to generate every single time
+clean.doFirst {
+    delete "${rootDir}/bin"
+}
+
+dependencies {
+    // Add any dependencies your application needs to run, for example:
+    // implementation 'com.google.guava:guava:30.0-jre'
+    implementation 'com.squareup:javapoet:1.13.0'
+    testImplementation 'junit:junit:4.13.2'
+
+}
+
+task jlox(type: Jar) {
+    archiveBaseName = 'jlox'
+    archiveVersion = '1.0'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes  'Implementation-Title': 'A Lox Interpreter in Java.',
+                    'Implementation-Version': archiveVersion,
+                    'Main-Class': 'com.lox.Lox'
+    }
+    from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } } {
+        exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+    }
+    with jar
+}
+
+task buildParserEmitter(type: Jar) {
+    archiveBaseName = 'emitter'
+    archiveVersion = '1.0'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes  'Implementation-Title': 'A boilerplate codegen to build templates for code generation.',
+                'Implementation-Version': archiveVersion,
+                'Main-Class': 'com.tools.GenerateAstStub'
+    }
+    from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } } {
+        exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+    }
+    with jar
+}
+
+
+task propertyTypes(){
+    doLast{
+        if (project.hasProperty("args")) {
+            println "Our input argument with project property ["+project.getProperty("args")+"]"
+        }
+        println "Our input argument with system property ["+System.getProperty("args")+"]"
+    }
+}
+if (project.hasProperty("args")) {
+    ext.cmdargs = project.getProperty("args")
+} else {
+    ext.cmdargs = ""
+}
+task emitASTStubs(type: JavaExec) {
+    dependsOn buildParserEmitter
+    group = "Execution"
+    description = "WALA code to system dependency graph"
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = "com.tools.GenerateAstStub"
+    args cmdargs.split()
+}
